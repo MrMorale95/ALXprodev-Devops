@@ -8,9 +8,9 @@ TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 # Initialize CSV file with header
 echo "Name,Height (m),Weight (kg)" > "$OUTPUT_FILE"
 
-# Process each JSON file using only jq and awk
+# Process each JSON file
 for file in "$INPUT_DIR"/*.json; do
-    # Extract and format data using jq only
+    # Extract and format data using jq
     jq -r '
         .name as $name | 
         (.height/10) as $height | 
@@ -19,11 +19,11 @@ for file in "$INPUT_DIR"/*.json; do
     ' "$file" >> "$OUTPUT_FILE"
 done
 
-# Calculate and display averages using awk only
+# Use sed to clean up any trailing .0 on whole numbers
+sed -i 's/\.0,/,/g; s/\.0$//' "$OUTPUT_FILE"
+
+# Calculate and display averages using awk
 awk -F, '
-BEGIN {
-    printf "\n"
-}
 NR == 1 {
     print $0  # Print header
     next
