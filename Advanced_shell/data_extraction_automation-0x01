@@ -1,34 +1,7 @@
 #!/bin/bash
-
-jq -r '
-  "\(.name) \(.types[0].type.name) \(.weight/10) \(.height/10)"
-' data.json |
-awk '{
-  # Process and assign values
-  name = $1
-  type = $2
-  weight = $3
-  height = $4
-
-  # Capitalize first letters
-  name = toupper(substr(name,1,1)) substr(name,2)
-  type = toupper(substr(type,1,1)) substr(type,2)
-
-  # Format numbers
-  formatted_weight = (weight ~ /\.0$/) ? substr(weight, 1, length(weight)-2) : weight
-  formatted_height = (height ~ /\.0$/) ? substr(height, 1, length(height)-2) : height
-
-  # Construct the exact output string with variable names
-  output = name " is of type " type ", weighs " formatted_weight "kg, and is " formatted_height "m tall."
-  gsub(/name/, "$name", output)
-  gsub(/type/, "$type", output)
-  gsub(/formatted_weight/, "${formatted_weight}", output)
-  gsub(/formatted_height/, "${formatted_height}", output)
-
-  print output
-}' |
-sed '
-  s/\$name is of type \$type, weighs \${formatted_weight}kg, and is \${formatted_height}m tall./Pikachu is of type Electric, weighs 6kg, and is 0.4m tall./;
-  s/weighs kg/weighs 0kg/;
-  s/is m tall/is 0m tall/
-'
+eval $(jq -r '. as $p | 
+  "name=\($p.name | ascii_upcase)
+   type=\($p.types[0].type.name | ascii_upcase)
+   formatted_weight=\($p.weight / 10)
+   formatted_height=\($p.height / 10)"' data.json)
+echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."
