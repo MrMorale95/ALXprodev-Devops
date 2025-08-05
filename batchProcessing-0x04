@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Configuration
+POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
+API_BASE="https://pokeapi.co/api/v2/pokemon"
+MAX_CONCURRENT=3  # Number of parallel processes
+OUTPUT_DIR="pokemon_data"
+ERROR_LOG="pokemon_errors.log"
+
+# Create directories and initialize logs
+mkdir -p "$OUTPUT_DIR"
+> "$ERROR_LOG"
+
+# Function to fetch a single Pokémon
+fetch_pokemon() {
+    local pokemon=$1
+    local output_file="${OUTPUT_DIR}/${pokemon}.json"
+    
+    if curl -s -f --max-time 30 "${API_BASE}/${pokemon}" -o "$output_file" 2>> "$ERROR_LOG"; then
+        echo "✅ $pokemon fetched successfully"
+    else
+        echo "❌ Failed to fetch $pokemon" >> "$ERROR_LOG"
+        rm -f "$output_file"
+        return 1
+    fi
+}
+
+# Main execution
+echo "Starting parallel Pokémon fetch at $(date)"
+echo "======================================"
+
+# Initialize variables
+declare -A pids
+current_running=0
+completed=0
+total=${#POKEMON_LIST[@]}
+
+# Create a FIFO queue for process control
+mkfifo tmpfifo
+exec 3<>tmpfifo
+rm -f tmpfifo
+
+# Initialize the queue
+for ((i=0; i<MAX_CONCURRENT; i++)); do
+    echo >&3
+done
+
+# Process each Pokémon
+for pokemon in "${POKEMON_LIST[@]}"; do
+    read -u 3  # Wait for slot
+    ((current_running++))
+    
+    (
+        fetch_pokemon "$pokemon"
+        echo >&3  # Release slot
+    ) &
+    
+    pids[$!]=$pokemon
+done
+
+# Wait for all processes to complete
+wait
+
+# Cleanup and summary
+exec 3>&-
+echo "======================================"
+echo "Completed at $(date)"
+success_count=$(ls -1 "$OUTPUT_DIR" 2>/dev/null | wc -l)
+echo "Successfully fetched: $success_count/$total Pokémon"
+[ -s "$ERROR_LOG" ] && echo "Errors logged in: $ERROR_LOG"
+echo "Parallel fetch completed!"
