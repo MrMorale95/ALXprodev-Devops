@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Configuration
+INPUT_DIR="pokemon_data"
+OUTPUT_FILE="pokemon_report.csv"
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+
+# Initialize CSV file with header
+echo "Name,Height (m),Weight (kg)" > "$OUTPUT_FILE"
+
+# Process each JSON file
+for file in "$INPUT_DIR"/*.json; do
+    # Extract data using jq
+    name=$(jq -r '.name | sub("^."; .[:1] | ascii_upcase)' "$file")
+    height=$(jq -r '.height/10' "$file")
+    weight=$(jq -r '.weight/10' "$file")
+    
+    # Append to CSV
+    echo "$name,$height,$weight" >> "$OUTPUT_FILE"
+done
+
+# Calculate averages using awk
+awk -F, '
+NR > 1 {
+    height_sum += $2
+    weight_sum += $3
+    count++
+}
+END {
+    printf "\nAverage Height: %.2f m\n", height_sum/count
+    printf "Average Weight: %.2f kg\n", weight_sum/count
+}
+' "$OUTPUT_FILE"
+
+echo "CSV Report generated at: $OUTPUT_FILE"
+echo "Report generated on: $TIMESTAMP"
