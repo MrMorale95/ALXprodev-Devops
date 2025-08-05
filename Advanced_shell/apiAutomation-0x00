@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# API URL for Pikachu
+API_URL="https://pokeapi.co/api/v2/pokemon/pikachu"
+
+# Make the API request and handle the response
+curl -s -f "$API_URL" -o data.json 2> errors.txt
+
+# Check if the request was successful
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to fetch data from the API. $(date)" >> errors.txt
+else
+    # If successful, ensure the file is valid JSON
+    if ! jq empty data.json 2>> errors.txt; then
+        echo "Error: Response is not valid JSON. $(date)" >> errors.txt
+        rm data.json  # Remove invalid file
+    fi
+fi
