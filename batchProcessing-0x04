@@ -3,7 +3,7 @@
 # Configuration
 POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
 API_BASE="https://pokeapi.co/api/v2/pokemon"
-MAX_CONCURRENT=3  # Number of parallel processes
+MAX_PARALLEL=3  # Optimal number of parallel requests
 OUTPUT_DIR="pokemon_data"
 ERROR_LOG="pokemon_errors.log"
 
@@ -28,44 +28,33 @@ fetch_pokemon() {
 # Main execution
 echo "Starting parallel Pokémon fetch at $(date)"
 echo "======================================"
+echo "Processing ${#POKEMON_LIST[@]} Pokémon with $MAX_PARALLEL parallel workers"
 
-# Initialize variables
-declare -A pids
-current_running=0
+# Initialize process tracking
+declare -a pid_array
 completed=0
-total=${#POKEMON_LIST[@]}
 
-# Create a FIFO queue for process control
-mkfifo tmpfifo
-exec 3<>tmpfifo
-rm -f tmpfifo
-
-# Initialize the queue
-for ((i=0; i<MAX_CONCURRENT; i++)); do
-    echo >&3
+# Process Pokémon in batches
+for ((i=0; i<${#POKEMON_LIST[@]}; i+=MAX_PARALLEL)); do
+    # Launch parallel batch
+    for ((j=0; j<MAX_PARALLEL && i+j<${#POKEMON_LIST[@]}; j++)); do
+        pokemon="${POKEMON_LIST[$((i+j))]}"
+        fetch_pokemon "$pokemon" &
+        pid_array+=($!)
+        echo "🔄 Started process $! for $pokemon"
+    done
+    
+    # Wait for current batch to complete
+    for pid in "${pid_array[@]}"; do
+        wait "$pid" && ((completed++))
+    done
+    pid_array=()  # Reset for next batch
 done
 
-# Process each Pokémon
-for pokemon in "${POKEMON_LIST[@]}"; do
-    read -u 3  # Wait for slot
-    ((current_running++))
-    
-    (
-        fetch_pokemon "$pokemon"
-        echo >&3  # Release slot
-    ) &
-    
-    pids[$!]=$pokemon
-done
-
-# Wait for all processes to complete
-wait
-
-# Cleanup and summary
-exec 3>&-
+# Final summary
 echo "======================================"
 echo "Completed at $(date)"
 success_count=$(ls -1 "$OUTPUT_DIR" 2>/dev/null | wc -l)
-echo "Successfully fetched: $success_count/$total Pokémon"
+echo "Results: $success_count/${#POKEMON_LIST[@]} Pokémon fetched successfully"
 [ -s "$ERROR_LOG" ] && echo "Errors logged in: $ERROR_LOG"
-echo "Parallel fetch completed!"
+echo "Parallel fetch operation completed!"
