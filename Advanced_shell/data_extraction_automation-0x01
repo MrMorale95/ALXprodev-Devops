@@ -1,21 +1,25 @@
 #!/bin/bash
 
 jq -r '
-  .name + " " + 
-  (.types[0].type.name | ascii_upcase[:1] + .[1:]) + " " + 
-  (.weight/10 | tostring) + " " + 
-  (.height/10 | tostring)
+  "\(.name) \(.types[0].type.name) \(.weight/10) \(.height/10)"
 ' data.json |
 awk '{
-  # Format weight and height (remove trailing .0 if present)
-  sub(/\.0$/, "", $3);
-  sub(/\.0$/, "", $4);
-  
-  # Capitalize first letter of name (already handled for type in jq)
-  first_char = substr($1, 1, 1);
-  $1 = toupper(first_char) substr($1, 2);
-  
-  print $1 " is of type " $2 ", weighs " $3 "kg, and is " $4 "m tall."
+  # Assign to named variables with $ prefix
+  $name = $1
+  $type = $2
+  $weight = $3
+  $height = $4
+
+  # Capitalize first letters
+  $name = toupper(substr($name,1,1)) substr($name,2)
+  $type = toupper(substr($type,1,1)) substr($type,2)
+
+  # Format numbers (remove trailing .0 if present)
+  $formatted_weight = ($weight ~ /\.0$/) ? substr($weight, 1, length($weight)-2) : $weight
+  $formatted_height = ($height ~ /\.0$/) ? substr($height, 1, length($height)-2) : $height
+
+  # Print using $variables in the output string
+  print $name " is of type " $type ", weighs " $formatted_weight "kg, and is " $formatted_height "m tall."
 }' |
 sed '
   s/weighs kg/weighs 0kg/;
