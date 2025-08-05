@@ -1,17 +1,23 @@
 #!/bin/bash
 
 jq -r '
-  "\(.name) \(.types[0].type.name) \(.weight/10) \(.height/10)"
+  .name + " " + 
+  (.types[0].type.name | ascii_upcase[:1] + .[1:]) + " " + 
+  (.weight/10 | tostring) + " " + 
+  (.height/10 | tostring)
 ' data.json |
 awk '{
-  # Capitalize first letter of name and type
-  name = $1; sub(/^./, toupper(substr($1,1,1)), name);
-  type = $2; sub(/^./, toupper(substr($2,1,1)), type);
+  # Format weight and height (remove trailing .0 if present)
+  sub(/\.0$/, "", $3);
+  sub(/\.0$/, "", $4);
   
-  # Format weight and height (remove trailing .0 if whole number)
-  weight = $3; sub(/\.0$/, "", weight);
-  height = $4; sub(/\.0$/, "", height);
+  # Capitalize first letter of name (already handled for type in jq)
+  first_char = substr($1, 1, 1);
+  $1 = toupper(first_char) substr($1, 2);
   
-  print name " is of type " type ", weighs " weight "kg, and is " height "m tall."
+  print $1 " is of type " $2 ", weighs " $3 "kg, and is " $4 "m tall."
 }' |
-sed 's/, weighs kg/, weighs 0kg/; s/, is m tall/, is 0m tall/'  # Handle potential missing values
+sed '
+  s/weighs kg/weighs 0kg/;
+  s/is m tall/is 0m tall/
+'
