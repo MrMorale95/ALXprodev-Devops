@@ -1,7 +1,2 @@
 #!/bin/bash
-eval $(jq -r '. as $p | 
-  "name=\($p.name | ascii_upcase)
-   type=\($p.types[0].type.name | ascii_upcase)
-   formatted_weight=\($p.weight / 10)
-   formatted_height=\($p.height / 10)"' data.json)
-echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."
+jq -r '[.name, .types[0].type.name, .weight, .height] | @tsv' data.json | awk '{printf "%s %s %s %s\n", $1, $2, $3/10, $4/10}' | sed -E 's/^([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)$/\1 is of type \2, weighs \3kg, and is \4m tall./'
