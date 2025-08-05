@@ -1,18 +1,17 @@
 #!/bin/bash
 
-# Extract data using jq and format with awk/sed
-jq -r '[
-    .name,
-    .types[0].type.name,
-    .weight|./10,
-    .height|./10
-] | @tsv' data.json | 
-awk -F'\t' '{
-    # Capitalize first letter of name and type
-    name = $1; sub(/^./, toupper(substr($1,1,1)), name
-    type = $2; sub(/^./, toupper(substr($2,1,1)), type
-    
-    printf "%s is of type %s, weighs %.1fkg, and is %.1fm tall.\n", 
-        name, type, $3, $4
-}' | 
-sed 's/kg, 0/kg, /'  # Fix potential trailing zero for whole numbers
+jq -r '
+  "\(.name) \(.types[0].type.name) \(.weight/10) \(.height/10)"
+' data.json |
+awk '{
+  # Capitalize first letter of name and type
+  name = $1; sub(/^./, toupper(substr($1,1,1)), name);
+  type = $2; sub(/^./, toupper(substr($2,1,1)), type);
+  
+  # Format weight and height (remove trailing .0 if whole number)
+  weight = $3; sub(/\.0$/, "", weight);
+  height = $4; sub(/\.0$/, "", height);
+  
+  print name " is of type " type ", weighs " weight "kg, and is " height "m tall."
+}' |
+sed 's/, weighs kg/, weighs 0kg/; s/, is m tall/, is 0m tall/'  # Handle potential missing values
