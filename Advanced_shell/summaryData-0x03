@@ -8,20 +8,28 @@ TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 # Initialize CSV file with header
 echo "Name,Height (m),Weight (kg)" > "$OUTPUT_FILE"
 
-# Process each JSON file
+# Process each JSON file using only jq and awk
 for file in "$INPUT_DIR"/*.json; do
-    # Extract data using jq
-    name=$(jq -r '.name | sub("^."; .[:1] | ascii_upcase)' "$file")
-    height=$(jq -r '.height/10' "$file")
-    weight=$(jq -r '.weight/10' "$file")
-    
-    # Append to CSV
-    echo "$name,$height,$weight" >> "$OUTPUT_FILE"
+    # Extract and format data using jq only
+    jq -r '
+        .name as $name | 
+        (.height/10) as $height | 
+        (.weight/10) as $weight |
+        "\($name | sub("^."; .[:1] | ascii_upcase)),\($height),\($weight)"
+    ' "$file" >> "$OUTPUT_FILE"
 done
 
-# Calculate averages using awk
+# Calculate and display averages using awk only
 awk -F, '
-NR > 1 {
+BEGIN {
+    printf "\n"
+}
+NR == 1 {
+    print $0  # Print header
+    next
+}
+{
+    print $0  # Print data rows
     height_sum += $2
     weight_sum += $3
     count++
@@ -29,8 +37,8 @@ NR > 1 {
 END {
     printf "\nAverage Height: %.2f m\n", height_sum/count
     printf "Average Weight: %.2f kg\n", weight_sum/count
+    printf "\nReport generated on: '"$TIMESTAMP"'\n"
 }
-' "$OUTPUT_FILE"
+' "$OUTPUT_FILE" > temp_report && mv temp_report "$OUTPUT_FILE"
 
 echo "CSV Report generated at: $OUTPUT_FILE"
-echo "Report generated on: $TIMESTAMP"
